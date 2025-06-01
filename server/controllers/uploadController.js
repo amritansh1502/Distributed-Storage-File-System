@@ -10,7 +10,8 @@ const {
   encryptionKey
 } = require('../config/constants');
 
-exports.handleFileUpload = async (req, res) => {
+exports.handleFileUpload = async (req, res, io) => {
+
   try {
     const file = req.file;
     const filePath = file.path;
@@ -70,11 +71,23 @@ exports.handleFileUpload = async (req, res) => {
 
       chunkLocations.push({ chunkName, nodes: selectedNodes });
 
-      index++;
+      
       uploadedSize += chunk.length;
 
       const percent = Math.min(100, Math.floor((uploadedSize / totalSize) * 100));
       await FileModel.updateOne({ savedName: fileName }, { progress: percent });
+
+
+      io.emit('upload-progress', {
+  fileName,
+  progress: percent,
+  chunk: index,
+  replicatedTo: selectedNodes
+});
+
+index++;
+      readStream.resume();
+
     });
 
     readStream.on('end', async () => {
@@ -89,6 +102,12 @@ exports.handleFileUpload = async (req, res) => {
           status: 'complete'
         }
       );
+   io.emit('upload-complete', {
+  fileName,
+  totalChunks: index,
+  chunkLocations
+});
+
 
       res.status(200).json({
         message: 'File uploaded, encrypted, and replicated successfully.',

@@ -1,15 +1,20 @@
 const mongoose = require('mongoose');
 
-const NodeSchema = new mongoose.Schema({
-  nodeName: String,
-  isHealthy: {
-    type: Boolean,
-    default: true
+const nodeSchema = new mongoose.Schema({
+  nodeId: {
+    type: String,
+    required: true,
+    unique: true,
   },
-  lastChecked: {
+  status: {
+    type: String,
+    enum: ['online', 'offline'],
+    default: 'offline',
+  },
+  lastSeen: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
-module.exports = mongoose.model('Node', NodeSchema);
+module.exports = mongoose.model('Node', nodeSchema);
