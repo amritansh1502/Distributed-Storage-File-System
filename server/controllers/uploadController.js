@@ -8,7 +8,7 @@ const {
   CHUNKS_DIR,
   CHUNK_SIZE,
   encryptionKey
-} = require('../config/constants.js');
+} = require('../config/constants');
 
 exports.handleFileUpload = async (req, res) => {
   try {
@@ -17,7 +17,6 @@ exports.handleFileUpload = async (req, res) => {
     const fileName = file.filename;
     const originalName = file.originalname;
     const IV = crypto.randomBytes(16);
-    const readStream = fs.createReadStream(filePath, { highWaterMark: CHUNK_SIZE });
 
     const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'text/plain'];
     const maxSize = 10 * 1024 * 1024;
@@ -32,10 +31,27 @@ exports.handleFileUpload = async (req, res) => {
       return res.status(400).json({ error: 'File too large' });
     }
 
+    // Initialize metadata
+    const fileDoc = new FileModel({
+      originalName,
+      savedName: fileName,
+      totalChunks: 0, // Will update later
+      chunkLocations: [],
+      iv: IV.toString('hex'),
+      status: 'processing',
+      progress: 0
+    });
+
+    await fileDoc.save(); // Save early to track progress
+
+    const readStream = fs.createReadStream(filePath, { highWaterMark: CHUNK_SIZE });
+
     let index = 0;
+    let uploadedSize = 0;
+    const totalSize = file.size;
     const chunkLocations = [];
 
-    readStream.on('data', (chunk) => {
+    readStream.on('data', async (chunk) => {
       const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(encryptionKey), IV);
       const encrypted = Buffer.concat([cipher.update(chunk), cipher.final()]);
 
@@ -52,29 +68,31 @@ exports.handleFileUpload = async (req, res) => {
         fs.writeFileSync(chunkPath, encrypted);
       });
 
-      chunkLocations.push({
-        chunkName,
-        nodes: selectedNodes
-      });
+      chunkLocations.push({ chunkName, nodes: selectedNodes });
 
       index++;
+      uploadedSize += chunk.length;
+
+      const percent = Math.min(100, Math.floor((uploadedSize / totalSize) * 100));
+      await FileModel.updateOne({ savedName: fileName }, { progress: percent });
     });
 
     readStream.on('end', async () => {
-      fs.unlinkSync(filePath);
+      fs.unlinkSync(filePath); // Delete temp upload
 
-      const fileDoc = new FileModel({
-        originalName,
-        savedName: fileName,
-        totalChunks: index,
-        chunkLocations,
-        iv: IV.toString('hex')
-      });
-
-      await fileDoc.save();
+      await FileModel.updateOne(
+        { savedName: fileName },
+        {
+          totalChunks: index,
+          chunkLocations,
+          progress: 100,
+          status: 'complete'
+        }
+      );
 
       res.status(200).json({
-        message: 'File uploaded and replicated',
+        message: 'File uploaded, encrypted, and replicated successfully.',
+        fileId:fileDoc._id,
         chunks: index,
         chunkLocations
       });
@@ -82,7 +100,7 @@ exports.handleFileUpload = async (req, res) => {
 
     readStream.on('error', (err) => {
       console.error('Chunking error:', err);
-      res.status(500).json({ error: 'Failed to chunk file' });
+      res.status(500).json({ error: 'Failed to process file.' });
     });
 
   } catch (err) {

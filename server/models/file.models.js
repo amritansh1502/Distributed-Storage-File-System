@@ -14,7 +14,16 @@ const FileSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  iv: String
+  iv: String,
+  status: {
+    type: String,
+    enum: ['processing', 'complete'],
+    default: 'processing'
+  },
+  progress: {
+    type: Number,
+    default: 0 // 0 to 100%
+  }
 });
 
 module.exports = mongoose.model('File', FileSchema);
