@@ -5,11 +5,16 @@ export default function useNodeHealth() {
   const [nodeStatus, setNodeStatus] = useState({});
 
   useEffect(() => {
-    socket.on('nodeHealthStatus', (data) => {
-      setNodeStatus(data); // { Node-1: true, Node-2: false }
+    socket.on('upload-progress', (data) => {
+      // Convert array of nodes to object with true status
+      const statusObj = {};
+      data.replicatedTo.forEach(node => {
+        statusObj[node] = true;
+      });
+      setNodeStatus(statusObj);
     });
 
-    return () => socket.off('nodeHealthStatus');
+    return () => socket.off('upload-progress');
   }, []);
 
   return nodeStatus;

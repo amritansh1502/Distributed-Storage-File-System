@@ -8,26 +8,26 @@ export default function useNodeStatus() {
   const [filter, setFilter] = useState('');
 
   useEffect(() => {
-    socket.on('chunkProgress', (data) => {
+    socket.on('upload-progress', (data) => {
       setChunks((prev) => [...prev, data]);
 
       setNodes((prevNodes) => {
         const updated = { ...prevNodes };
-        data.nodes.forEach((node) => {
+        data.replicatedTo.forEach((node) => {
           if (!updated[node]) updated[node] = [];
-          updated[node].push({ name: data.chunkName, file: data.fileName });
+          updated[node].push({ name: `chunk-${data.chunk}`, file: data.fileName });
         });
         return updated;
       });
 
       setActiveNodes((prev) => {
         const newSet = new Set(prev);
-        data.nodes.forEach((node) => newSet.add(node));
+        data.replicatedTo.forEach((node) => newSet.add(node));
         return newSet;
       });
     });
 
-    return () => socket.off('chunkProgress');
+    return () => socket.off('upload-progress');
   }, []);
 
   return { chunks, nodes, activeNodes, filter, setFilter };
