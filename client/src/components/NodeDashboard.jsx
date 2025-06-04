@@ -1,13 +1,16 @@
 import React from 'react';
 import useNodeStatus from '../hooks/useNodeStatus';
-import { motion, AnimatePresence } from 'framer-motion';
 import useNodeHealth from '../hooks/useNodeHealth';
+import useReplicationToasts from '../hooks/useReplicationToasts';
+import ReplicationToast from '../components/ReplicationToast';   
+// ...
 
 function NodeDashboard() {
   const nodeStatus = useNodeHealth();
   const { nodes, activeNodes, filter, setFilter } = useNodeStatus();
+  const toasts = useReplicationToasts();
+  console.log(toasts);
 
-  // Filter chunks by file name, and filter out nodes with no matching chunks
   const filteredNodes = Object.entries(nodes)
     .map(([nodeName, chunkList]) => {
       const filteredChunks = chunkList.filter(chunk =>
@@ -18,10 +21,9 @@ function NodeDashboard() {
     .filter(([_, chunks]) => chunks.length > 0);
 
   return (
-    <div className="p-4">
+    <div className="p-4 relative">
       <h2 className="text-2xl font-semibold mb-4">📊 Node Replication Dashboard</h2>
 
-      {/* Filter Input */}
       <input
         type="text"
         placeholder="Filter by file name..."
@@ -40,10 +42,8 @@ function NodeDashboard() {
         {filteredNodes.map(([nodeName, chunks]) => {
           const isActive = nodeStatus[nodeName] ?? false;
           return (
-            <motion.div
+            <div
               key={nodeName}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
               className={`p-4 border rounded-xl shadow ${
                 isActive ? 'bg-green-50' : 'bg-red-50'
               }`}
@@ -59,24 +59,20 @@ function NodeDashboard() {
                 </span>
               </div>
               <ul className="text-sm text-gray-800 space-y-1">
-                <AnimatePresence>
-                  {chunks.map((chunk, idx) => (
-                    <motion.li
-                      key={chunk.name + idx}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      📦 {chunk.name} <span className="text-xs text-gray-500">({chunk.file})</span>
-                    </motion.li>
-                  ))}
-                </AnimatePresence>
+                {chunks.map((chunk, idx) => (
+                  <li key={chunk.name + idx}>
+                    📦 {chunk.name}{' '}
+                    <span className="text-xs text-gray-500">({chunk.file})</span>
+                  </li>
+                ))}
               </ul>
-            </motion.div>
+            </div>
           );
         })}
       </div>
+
+      {/* 🍞 Animated Re-replication Toasts */}
+      <ReplicationToast toasts={toasts} />
     </div>
   );
 }

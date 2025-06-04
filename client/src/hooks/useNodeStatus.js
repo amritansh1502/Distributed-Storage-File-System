@@ -9,6 +9,7 @@ export default function useNodeStatus() {
 
   useEffect(() => {
     socket.on('upload-progress', (data) => {
+      console.log('useNodeStatus received upload-progress:', data);
       setChunks((prev) => [...prev, data]);
 
       setNodes((prevNodes) => {

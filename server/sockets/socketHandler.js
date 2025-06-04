@@ -2,15 +2,15 @@ const NodeModel = require('../models/node.models.js');
 
 module.exports = (io) => {
   io.on('connection', (socket) => {
-    console.log('Client connected');
+    console.log('[SOCKET] Client connected');
 
-    // When a node sends a health ping
+    // Node sends health ping
     socket.on('nodePing', async ({ nodeId }) => {
-      console.log(`[Socket] Health ping from ${nodeId}`);
+      console.log(`[PING] Received from node: ${nodeId}`);
 
       try {
-        // Upsert node in DB
-        await NodeModel.findOneAndUpdate(
+        // Upsert node status in DB
+        const updatedNode = await NodeModel.findOneAndUpdate(
           { nodeId },
           {
             $set: {
@@ -21,25 +21,26 @@ module.exports = (io) => {
           { upsert: true, new: true }
         );
 
-        // Emit live update to frontend
+        // Emit individual update to frontend
         io.emit('nodeHealthUpdate', {
-          nodeId,
+          nodeId: updatedNode.nodeId,
           status: 'online',
-          lastSeen: new Date(),
+          lastSeen: updatedNode.lastSeen,
         });
       } catch (err) {
-        console.error('Error handling nodePing:', err);
+        console.error('[ERROR] nodePing handling failed:', err);
       }
     });
 
     socket.on('disconnect', () => {
-      console.log('Client disconnected');
+      console.log('[SOCKET] Client disconnected');
     });
   });
 
-  // Interval to check node health
+  // Periodic node health check (every 10 sec)
   setInterval(async () => {
     const now = Date.now();
+
     try {
       const nodes = await NodeModel.find({});
       const updatedStatuses = [];
@@ -51,6 +52,11 @@ module.exports = (io) => {
         if (!isOnline && node.status !== 'offline') {
           node.status = 'offline';
           await node.save();
+
+          // Trigger auto re-replication logic
+          console.log(`[FAILURE DETECTED] Node ${node.nodeId} marked offline.`);
+         const reReplicateChunks = require('../utils/replicationUtils');
+         await reReplicateChunks(node.nodeId, io);
         }
 
         updatedStatuses.push({
@@ -60,10 +66,10 @@ module.exports = (io) => {
         });
       }
 
-      // Emit the whole node status update to UI
+      // Emit full node status list
       io.emit('nodeHealthStatus', updatedStatuses);
     } catch (err) {
-      console.error('Error checking node statuses:', err);
+      console.error('[ERROR] Checking node health:', err);
     }
-  }, 10000); // Every 10 seconds
+  }, 10000);
 };

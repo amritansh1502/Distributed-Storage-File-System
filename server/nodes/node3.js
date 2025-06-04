@@ -1,7 +1,7 @@
 const io = require('socket.io-client');
 const socket = io('http://localhost:5000');
 
-const nodeId = 'Node-3';
+const nodeId = 'node3';
 
 setInterval(() => {
   socket.emit('nodePing', { nodeId });
