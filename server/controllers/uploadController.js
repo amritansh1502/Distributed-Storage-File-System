@@ -11,7 +11,6 @@ const {
 } = require('../config/constants');
 
 exports.handleFileUpload = async (req, res, io) => {
-
   try {
     const file = req.file;
     const filePath = file.path;
@@ -52,8 +51,9 @@ exports.handleFileUpload = async (req, res, io) => {
     const totalSize = file.size;
     const chunkLocations = [];
 
-    readStream.on('data', async (chunk) => {
-      const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(encryptionKey), IV);
+    for await (const chunk of readStream) {
+      const chunkIV = crypto.randomBytes(16);
+      const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(encryptionKey), chunkIV);
       const encrypted = Buffer.concat([cipher.update(chunk), cipher.final()]);
 
       const chunkName = `${fileName}-chunk-${index}`;
@@ -69,59 +69,50 @@ exports.handleFileUpload = async (req, res, io) => {
         fs.writeFileSync(chunkPath, encrypted);
       });
 
-      chunkLocations.push({ chunkName, nodes: selectedNodes });
+      // Avoid duplicate chunk entries
+      if (!chunkLocations.some(c => c.chunkName === chunkName)) {
+        chunkLocations.push({ chunkName, nodes: selectedNodes, iv: chunkIV.toString('hex') });
+      }
 
-      
       uploadedSize += chunk.length;
 
       const percent = Math.min(100, Math.floor((uploadedSize / totalSize) * 100));
       await FileModel.updateOne({ savedName: fileName }, { progress: percent });
 
-
       io.emit('upload-progress', {
-  fileName,
-  progress: percent,
-  chunk: index,
-  replicatedTo: selectedNodes
-});
-
-index++;
-      readStream.resume();
-
-    });
-
-    readStream.on('end', async () => {
-      fs.unlinkSync(filePath); // Delete temp upload
-
-      await FileModel.updateOne(
-        { savedName: fileName },
-        {
-          totalChunks: index,
-          chunkLocations,
-          progress: 100,
-          status: 'complete'
-        }
-      );
-   io.emit('upload-complete', {
-  fileName,
-  totalChunks: index,
-  chunkLocations
-});
-
-
-      res.status(200).json({
-        message: 'File uploaded, encrypted, and replicated successfully.',
-        fileId:fileDoc._id,
-        chunks: index,
-        chunkLocations
+        fileName,
+        progress: percent,
+        chunk: index,
+        replicatedTo: selectedNodes
       });
+
+      index++;
+    }
+
+    fs.unlinkSync(filePath); // Delete temp upload
+
+    await FileModel.updateOne(
+      { savedName: fileName },
+      {
+        totalChunks: index,
+        chunkLocations,
+        progress: 100,
+        status: 'complete'
+      }
+    );
+
+    io.emit('upload-complete', {
+      fileName,
+      totalChunks: index,
+      chunkLocations
     });
 
-    readStream.on('error', (err) => {
-      console.error('Chunking error:', err);
-      res.status(500).json({ error: 'Failed to process file.' });
+    res.status(200).json({
+      message: 'File uploaded, encrypted, and replicated successfully.',
+      fileId: fileDoc._id,
+      chunks: index,
+      chunkLocations
     });
-
   } catch (err) {
     console.error('Upload error:', err);
     res.status(500).json({ error: 'Server error' });

@@ -7,7 +7,8 @@ const FileSchema = new mongoose.Schema({
   chunkLocations: [
     {
       chunkName: String,
-      nodes: [String]
+      nodes: [String],
+      iv: String
     }
   ],
   uploadDate: {

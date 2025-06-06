@@ -34,6 +34,9 @@ const io = new socketIo.Server(server, {
 const uploadRoutes = require('./routes/upload.js')(io); 
 app.use('/api', uploadRoutes);
 
+const downloadRoutes = require('./routes/download.js');
+app.use('/api', downloadRoutes);
+
 // Pass the io instance to your socket handler
 require('./sockets/socketHandler')(io);
 
