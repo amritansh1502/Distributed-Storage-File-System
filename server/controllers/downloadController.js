@@ -67,52 +67,51 @@ exports.handleFileDownload = async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${fileDoc.originalName}"`);
     res.setHeader('Content-Type', contentType);
 
-  
+    for (const chunkInfo of chunkLocations) {
+      // Find chunk file path
+      let chunkPath = null;
+      for (const node of chunkInfo.nodes) {
+        const possiblePath = path.join(CHUNKS_DIR, node, chunkInfo.chunkName);
+        if (fs.existsSync(possiblePath)) {
+          chunkPath = possiblePath;
+          break;
+        }
+      }
 
-for (const chunkInfo of chunkLocations) {
-  // Find chunk file path
-  let chunkPath = null;
-  for (const node of chunkInfo.nodes) {
-    const possiblePath = path.join(CHUNKS_DIR, node, chunkInfo.chunkName);
-    if (fs.existsSync(possiblePath)) {
-      chunkPath = possiblePath;
-      break;
-    }
-  }
+      if (!chunkPath) {
+        console.error(`Chunk ${chunkInfo.chunkName} not found on any node`);
+        res.end();
+        return;
+      }
 
-  if (!chunkPath) {
-    console.error(`Chunk ${chunkInfo.chunkName} not found on any node`);
-    res.end();
-    return;
-  }
-
-  console.log(`Streaming chunk ${chunkInfo.chunkName} from ${chunkPath}`);
-  const encryptedBuffer = fs.readFileSync(chunkPath);
-  const chunkIV = Buffer.from(chunkInfo.iv, 'hex');
-
-  try {
-    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(encryptionKey), chunkIV);
-    const decryptedBuffer = Buffer.concat([
-      decipher.update(encryptedBuffer),
-      decipher.final()
-    ]);
-
-    // ✅ Write decrypted chunk to response
-    res.write(decryptedBuffer);
-  } catch (error) {
-    console.error(`Failed to decrypt chunk ${chunkInfo.chunkName}`, error);
-    res.end();
-    return;
-  }
+      console.log(`Streaming chunk ${chunkInfo.chunkName} from ${chunkPath}`);
+      const encryptedBuffer = fs.readFileSync(chunkPath);
+if (!chunkInfo.iv) {
+  console.error(`Missing IV for chunk ${chunkInfo.chunkName}`);
+  res.end();
+  return;
 }
 
-// ✅ End response after all chunks are written
-res.end();
-console.log(`✅ File successfully streamed for file ID ${fileId}`);
+const chunkIV = Buffer.from(chunkInfo.iv, 'hex');
 
+try {
+  const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(encryptionKey), chunkIV);
+  const decryptedBuffer = Buffer.concat([
+    decipher.update(encryptedBuffer),
+    decipher.final()
+  ]);
 
+  // Write decrypted chunk to response
+  res.write(decryptedBuffer);
+} catch (error) {
+  console.error(`Failed to decrypt chunk ${chunkInfo.chunkName}`, error);
+  res.end();
+  return;
+}
+    }
 
- 
+    // End response after all chunks are written
+    res.end();
     console.log(`File download completed for file ID ${fileId}`);
   } catch (err) {
     console.error('Download error:', err);
@@ -121,5 +120,15 @@ console.log(`✅ File successfully streamed for file ID ${fileId}`);
     } else {
       res.end();
     }
+  }
+};
+
+exports.listFiles = async (req, res) => {
+  try {
+    const files = await FileModel.find({ status: 'complete' }).select('_id originalName').exec();
+    res.status(200).json(files);
+  } catch (err) {
+    console.error('Error fetching files:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 };
