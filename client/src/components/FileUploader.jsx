@@ -67,8 +67,12 @@ function FileUploader() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center gap-4 border p-6 rounded-xl shadow-md bg-white max-w-xl mx-auto">
-      <input type="file" onChange={handleFileChange} />
+    <div className="flex flex-col items-center gap-4 border p-6 rounded-xl shadow-md bg-gray-800 max-w-xl mx-auto">
+      <input
+        type="file"
+        onChange={handleFileChange}
+        className="text-white file:bg-blue-600 file:text-white file:px-4 file:py-2 file:rounded file:border-0 file:cursor-pointer hover:file:bg-blue-700"
+      />
 
       <button
         className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
@@ -90,8 +94,8 @@ function FileUploader() {
       {status && <p className="mt-2 font-medium">{status}</p>}
 
       {chunkLogs.length > 0 && (
-        <div className="bg-gray-100 p-3 rounded mt-4 w-full text-sm max-h-60 overflow-y-auto">
-          <strong className="block mb-1 text-gray-700">Chunk Logs:</strong>
+        <div className="bg-gray-700 text-white p-4 rounded mt-4 w-full text-sm max-h-60 overflow-y-auto">
+          <strong className="block mb-1 text-white font-semibold">Chunk Logs:</strong>
           <ul className="list-disc pl-4 space-y-1">
             {chunkLogs.map((log, idx) => (
               <li key={idx}>{log}</li>

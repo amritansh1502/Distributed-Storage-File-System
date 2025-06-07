@@ -31,21 +31,21 @@ function DownloadFiles() {
     document.body.removeChild(link);
   };
 
-  if (loading) return <p>Loading files...</p>;
-  if (error) return <p className="text-red-600">{error}</p>;
+  if (loading) return <p className="text-lg font-semibold text-gray-700 dark:text-gray-300">Loading files...</p>;
+  if (error) return <p className="text-lg font-semibold text-red-600 dark:text-red-400">{error}</p>;
 
   return (
-    <div className="flex flex-col items-center gap-4 border p-6 rounded-xl shadow-md bg-white max-w-xl mx-auto mt-6">
-      <h2 className="text-xl font-semibold mb-4">Available Files for Download</h2>
+    <div className="flex flex-col items-center gap-6 border p-6 sm:p-8 rounded-xl shadow-lg bg-white dark:bg-gray-800 max-w-full sm:max-w-xl mx-auto mt-8">
+      <h2 className="text-xl sm:text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">Available Files for Download</h2>
       {files.length === 0 ? (
-        <p>No files available for download.</p>
+        <p className="text-base sm:text-lg text-gray-700 dark:text-gray-300">No files available for download.</p>
       ) : (
-        <ul className="w-full space-y-3">
+        <ul className="w-full space-y-4">
           {files.map((file) => (
-            <li key={file._id} className="flex justify-between items-center border-b pb-2">
-              <span>{file.originalName}</span>
+            <li key={file._id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-300 dark:border-gray-600 pb-3">
+              <span className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 break-words mb-2 sm:mb-0 max-w-full truncate">{file.originalName}</span>
               <button
-                className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                className="bg-green-700 text-white px-5 py-2 rounded-lg hover:bg-green-800 transition self-start sm:self-auto"
                 onClick={() => handleDownload(file._id, file.originalName)}
               >
                 Download
