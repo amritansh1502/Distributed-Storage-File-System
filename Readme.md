@@ -7,7 +7,7 @@ A simulated distributed file storage system that chunks and replicates files acr
 - Frontend: React.js, Tailwind CSS
 - Backend: Node.js, Express.js, MongoDB
 - Real-Time: Socket.io
-- Extra: Docker, SHA256
+- Extra: SHA256
 
 ## Folder Structure
 
