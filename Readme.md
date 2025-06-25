@@ -74,6 +74,6 @@ npm run node3
 - React frontend with Tailwind CSS for a responsive UI
 - Node.js backend with Express and MongoDB for storage and API
 - Real-time communication using Socket.io
-- Docker support for containerized deployment (if configured)
+
 
 

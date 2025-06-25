@@ -3,8 +3,9 @@
 
 
 const io = require('socket.io-client');
+const serverUrl = process.env.SERVER_URL || 'http://localhost:5000';
+const socket = io(serverUrl);
 
-const socket = io('http://localhost:5000');
 
 
 const nodeId = 'node1';
