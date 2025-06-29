@@ -12,6 +12,9 @@ const {
 
 exports.handleFileUpload = async (req, res, io) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     const file = req.file;
     const filePath = file.path;
     const fileName = file.filename;
@@ -31,8 +34,9 @@ exports.handleFileUpload = async (req, res, io) => {
       return res.status(400).json({ error: 'File too large' });
     }
 
-    // Initialize metadata
+    // Initialize metadata with userId
     const fileDoc = new FileModel({
+      userId: req.user._id,
       originalName,
       savedName: fileName,
       totalChunks: 0, // Will update later

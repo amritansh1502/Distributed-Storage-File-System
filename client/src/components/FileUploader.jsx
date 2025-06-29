@@ -27,9 +27,13 @@ function FileUploader() {
     setStatus('Uploading...');
 
     try {
-      await axios.post(`${backendURL}/api/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+    const token = localStorage.getItem('token');
+    await axios.post(`${backendURL}/api/upload`, formData, {
+      headers: { 
+        'Content-Type': 'multipart/form-data',
+        Authorization: `Bearer ${token}`
+      },
+    });
 
       // Upload started — wait for real-time updates
       setStatus('Upload started. Waiting for chunk updates...');

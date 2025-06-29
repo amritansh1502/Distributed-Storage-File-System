@@ -1,134 +1,73 @@
+
+
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { PassThrough } = require('stream');
-const FileModel = require('../models/file.models');
-const { CHUNKS_DIR, encryptionKey } = require('../config/constants');
+const FileModel = require('../models/file.models.js');
+const authMiddleware = require('../middleware/auth');
+const { encryptionKey } = require('../config/constants');
 
-exports.handleFileDownload = async (req, res) => {
-  try {
+exports.handleFileDownload = [
+  authMiddleware,
+  async (req, res) => {
     const { fileId } = req.params;
-    if (!fileId) {
-      console.error('Download error: File ID is required');
-      return res.status(400).json({ error: 'File ID is required' });
-    }
 
-    const fileDoc = await FileModel.findById(fileId);
-    if (!fileDoc) {
-      console.error(`Download error: File not found for ID ${fileId}`);
-      return res.status(404).json({ error: 'File not found' });
-    }
-
-    if (fileDoc.status !== 'complete') {
-      console.error(`Download error: File upload not complete for ID ${fileId}`);
-      return res.status(400).json({ error: 'File upload not complete' });
-    }
-
-    let chunkLocations = fileDoc.chunkLocations;
-
-    console.log('Chunk locations from DB:', chunkLocations);
-
-    // Group chunkLocations by chunk index to avoid duplicates
-    const chunkMap = new Map();
-    for (const chunk of chunkLocations) {
-      const index = parseInt(chunk.chunkName.match(/-chunk-(\d+)$/)[1], 10);
-      if (!chunkMap.has(index)) {
-        chunkMap.set(index, chunk);
+    try {
+      const file = await FileModel.findById(fileId);
+      if (!file) {
+        return res.status(404).json({ error: 'File not found' });
       }
-    }
 
-    // Convert map values to array and sort by chunk index
-    chunkLocations = Array.from(chunkMap.values()).sort((a, b) => {
-      const aIndex = parseInt(a.chunkName.match(/-chunk-(\d+)$/)[1], 10);
-      const bIndex = parseInt(b.chunkName.match(/-chunk-(\d+)$/)[1], 10);
-      return aIndex - bIndex;
-    });
+      // Check if the file belongs to the authenticated user
+      if (file.userId.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
 
-    // Set content disposition and content type based on original file extension
-    const ext = path.extname(fileDoc.originalName).toLowerCase();
-    let contentType = 'application/octet-stream';
-    switch (ext) {
-      case '.pdf':
-        contentType = 'application/pdf';
-        break;
-      case '.jpg':
-      case '.jpeg':
-        contentType = 'image/jpeg';
-        break;
-      case '.png':
-        contentType = 'image/png';
-        break;
-      case '.txt':
-        contentType = 'text/plain';
-        break;
-      // Add more types as needed
-    }
+      // Logic to stream or send the file chunks to the user
+      const CHUNKS_DIR = path.resolve(__dirname, '../chunks');
+      const chunks = file.chunkLocations;
 
-    res.setHeader('Content-Disposition', `attachment; filename="${fileDoc.originalName}"`);
-    res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
+      res.setHeader('Content-Type', 'application/octet-stream');
 
-    for (const chunkInfo of chunkLocations) {
-      // Find chunk file path
-      let chunkPath = null;
-      for (const node of chunkInfo.nodes) {
-        const possiblePath = path.join(CHUNKS_DIR, node, chunkInfo.chunkName);
-        if (fs.existsSync(possiblePath)) {
-          chunkPath = possiblePath;
-          break;
+      // Stream chunks sequentially using streams to avoid memory issues and ensure proper concatenation
+      for (const chunkInfo of chunks) {
+        const chunkPath = path.join(CHUNKS_DIR, chunkInfo.nodes[0], chunkInfo.chunkName);
+        if (fs.existsSync(chunkPath)) {
+          await new Promise((resolve, reject) => {
+            const readStream = fs.createReadStream(chunkPath);
+            const decipher = crypto.createDecipheriv(
+              'aes-256-cbc',
+              Buffer.from(encryptionKey),
+              Buffer.from(chunkInfo.iv, 'hex')
+            );
+            readStream.on('error', reject);
+            decipher.on('error', reject);
+            readStream.on('end', resolve);
+            readStream.pipe(decipher).pipe(res, { end: false });
+          });
+        } else {
+          console.error(`Chunk not found: ${chunkPath}`);
+          return res.status(500).json({ error: 'Chunk missing on server' });
         }
       }
-
-      if (!chunkPath) {
-        console.error(`Chunk ${chunkInfo.chunkName} not found on any node`);
-        res.end();
-        return;
-      }
-
-      console.log(`Streaming chunk ${chunkInfo.chunkName} from ${chunkPath}`);
-      const encryptedBuffer = fs.readFileSync(chunkPath);
-if (!chunkInfo.iv) {
-  console.error(`Missing IV for chunk ${chunkInfo.chunkName}`);
-  res.end();
-  return;
-}
-
-const chunkIV = Buffer.from(chunkInfo.iv, 'hex');
-
-try {
-  const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(encryptionKey), chunkIV);
-  const decryptedBuffer = Buffer.concat([
-    decipher.update(encryptedBuffer),
-    decipher.final()
-  ]);
-
-  // Write decrypted chunk to response
-  res.write(decryptedBuffer);
-} catch (error) {
-  console.error(`Failed to decrypt chunk ${chunkInfo.chunkName}`, error);
-  res.end();
-  return;
-}
-    }
-
-    // End response after all chunks are written
-    res.end();
-    console.log(`File download completed for file ID ${fileId}`);
-  } catch (err) {
-    console.error('Download error:', err);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Server error during file download' });
-    } else {
       res.end();
+    } catch (err) {
+      console.error('Download error:', err);
+      res.status(500).json({ error: 'Server error' });
     }
   }
-};
+];
 
-exports.listFiles = async (req, res) => {
-  try {
-    const files = await FileModel.find({ status: 'complete' }).select('_id originalName').exec();
-    res.status(200).json(files);
-  } catch (err) {
-    console.error('Error fetching files:', err);
-    res.status(500).json({ error: 'Server error' });
+exports.listFiles = [
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const files = await FileModel.find({ userId: req.user._id }).select('originalName savedName uploadDate status progress');
+      res.json({ files });
+    } catch (err) {
+      console.error('List files error:', err);
+      res.status(500).json({ error: 'Server error' });
+    }
   }
-};
+];

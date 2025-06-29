@@ -10,8 +10,11 @@ function DownloadFiles() {
   useEffect(() => {
     const fetchFiles = async () => {
       try {
-        const response = await axios.get(backendURL + '/api/files');
-        setFiles(response.data);
+        const token = localStorage.getItem('token');
+        const response = await axios.get(backendURL + '/api/files', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setFiles(response.data.files);
         setLoading(false);
       } catch (err) {
         setError('Failed to load files');
@@ -21,14 +24,30 @@ function DownloadFiles() {
     fetchFiles();
   }, [backendURL]);
 
-  const handleDownload = (fileId, originalName) => {
-    const url = backendURL + '/api/download/' + fileId;
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', originalName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownload = async (fileId, originalName) => {
+    try {
+      const token = localStorage.getItem('token');
+      const url = backendURL + '/api/download/' + fileId;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', originalName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      alert('Failed to download file');
+    }
   };
 
   if (loading) return <p className="text-lg font-semibold text-gray-700 dark:text-gray-300">Loading files...</p>;

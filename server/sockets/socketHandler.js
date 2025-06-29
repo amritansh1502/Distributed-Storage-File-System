@@ -6,12 +6,13 @@ module.exports = (io) => {
 
     // Node sends health ping
     socket.on('nodePing', async ({ nodeId }) => {
-      console.log(`[PING] Received from node: ${nodeId}`);
+      const normalizedNodeId = nodeId.toLowerCase();
+      console.log(`[PING] Received from node: ${normalizedNodeId}`);
 
       try {
         // Upsert node status in DB
         const updatedNode = await NodeModel.findOneAndUpdate(
-          { nodeId },
+          { nodeId: normalizedNodeId },
           {
             $set: {
               status: 'online',
@@ -60,7 +61,7 @@ module.exports = (io) => {
         }
 
         updatedStatuses.push({
-          nodeId: node.nodeId,
+          nodeId: node.nodeId.toLowerCase(),
           status: isOnline ? 'online' : 'offline',
           lastSeen: node.lastSeen,
         });

@@ -10,7 +10,8 @@ export default function useNodeHealth() {
       // data is an array of { nodeId, status, lastSeen }
       const statusObj = {};
       data.forEach(({ nodeId, status }) => {
-        statusObj[nodeId] = status === 'online';
+        const normalizedNodeId = nodeId.toLowerCase();
+        statusObj[normalizedNodeId] = status === 'online';
       });
       setNodeStatus(statusObj);
     });

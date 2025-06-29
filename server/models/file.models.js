@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const FileSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
   originalName: String,
   savedName: String,
   totalChunks: Number,

@@ -57,6 +57,10 @@ module.exports = async function reReplicateChunks(failedNodeId, io) {
       }
     }
 
-    await file.save();
+    try {
+      await file.save();
+    } catch (err) {
+      console.error('[ERROR] Saving file during re-replication:', err.message);
+    }
   }
 };

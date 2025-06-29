@@ -35,6 +35,9 @@ app.use('/api', downloadRoutes);
 const filesRoutes = require('./routes/files.js');
 app.use('/api', filesRoutes);
 
+const authRoutes = require('./routes/auth.js');
+app.use('/api/auth', authRoutes);
+
 // Pass the io instance to your socket handler
 require('./sockets/socketHandler')(io);
 
