@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const http = require('http');  // <--- Add this
+const http = require('http');  
 const cors = require('cors');
 const socketIo = require('socket.io');
 
@@ -16,7 +16,7 @@ mongoose.connect(process.env.MONGO_URI)
 
 app.use(express.json());
 
-// Create HTTP server from express app
+// Create HTTP server
 const server = http.createServer(app);
 
 // Create socket.io instance from server

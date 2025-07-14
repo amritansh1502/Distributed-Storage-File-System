@@ -22,7 +22,7 @@ exports.handleFileUpload = async (req, res, io) => {
     const IV = crypto.randomBytes(16);
 
     const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'text/plain'];
-    const maxSize = 10 * 1024 * 1024;
+    const maxSize = 10 * 1024 * 1024; // 10 MB
 
     if (!allowedTypes.includes(file.mimetype)) {
       fs.unlinkSync(filePath);
